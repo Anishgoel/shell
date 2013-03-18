@@ -185,11 +185,32 @@ void eval(char *cmdline)
 	}
 	//Checks if the passed argument is built in
 	if(!builtin_cmd(argv)) {
+		sigset_t mask;
+		if(sigemptyset(&mask) < 0) {
+			fprintf(stderr,"Failed to create empty set.\n");
+			exit(0);
+		}
+		if(sigaddset(&mask,SIGCHLD) < 0) {
+			fprintf(stderr,"Failed to add SIGCHLD to set.\n");
+			exit(0);
+		}
+		if(sigprocmask(SIG_BLOCK,&mask,NULL) < 0) {
+			fprintf(stderr,"Failed to block SIGCHLD.\n");
+			exit(0);
+		}
 		//Forking and executing
 		if((pid = Fork()) == 0) {
+			if(setpgid(0,0) < 0) {
+				fprintf(stderr,"Failed to create process group.\n");
+				exit(0);
+			}
+			if(sigprocmask(SIG_UNBLOCK,&mask,NULL) < 0) {
+				fprintf(stderr,"Failed to unblock SIGCHLD.\n");
+				exit(0);
+			}
 			if(execve(argv[0],argv,environ) < 0) {
 				printf("%s: Command not found.\n",argv[0]);
-				exit(0);
+				exit(1);
 			}
 		}
 		if(!bg) {
@@ -197,9 +218,10 @@ void eval(char *cmdline)
 			if(!addjob(jobs, pid, FG, cmdline)) {
 				printf("Failed to add job.\n");
 			}
-			int status;
-			if(waitpid(pid, &status, 0) < 0) {
-				unix_error("waitfg: waitpid error");
+			//int status;
+			if(sigprocmask(SIG_UNBLOCK,&mask,NULL) < 0) {
+				fprintf(stderr,"Failed to unblock SIGCHLD.\n");
+				exit(0);
 			}
 			//Need to implement waitfg
 			waitfg(pid);
@@ -209,6 +231,7 @@ void eval(char *cmdline)
 			if(!addjob(jobs,pid,BG,cmdline)) {
 				printf("Failed to add job.\n");
 			}
+			sigprocmask(SIG_UNBLOCK,&mask,NULL);
 			printf("%d %s\n", pid, cmdline);
 		}
 	}
@@ -303,8 +326,105 @@ int builtin_cmd(char **argv)
  * do_bgfg - Execute the builtin bg and fg commands
  */
 void do_bgfg(char **argv) 
-{	
-	printf("Would be fgbg shit.\n");
+{
+	//pid_t pid;
+	int jid;
+	//int i = 0;
+	
+	//Check if there is an additional argument
+	if(argv[1]) {
+		//Check for valid argument
+		if(argv[1][0] == '%') {
+			//Getting Job ID
+			jid = argv[1][1] - '0';
+			if(getjobjid(jobs,jid) == 0) {
+				fprintf(stderr,"Not a valid job.\n");
+				return;
+			}
+		}
+		else {
+			//Getting Process ID
+			if(atoi(argv[1]) == 0) {
+				fprintf(stderr,"Invalid Parameters\n");
+				return;
+			}
+			else {
+				jid = atoi(argv[1]);
+				if(getjobjid(jobs,jid) == NULL) {
+					fprintf(stderr,"Not a valid job.\n");
+					return;
+				}
+			}
+		}
+		//Loop through jobs
+		int i;
+		for(i = 0; i < MAXJOBS; i++) {
+			//Check if we found the job were looking for
+			if((jobs[i].pid == (pid_t)jid) || (jobs[i].jid == (int)jid)) {
+				//Foreground Command
+				if(strcmp(argv[0],"fg") == 0) {
+					//Background Job Found
+					if(jobs[i].state == BG) {
+						if(kill(-jobs[i].pid,SIGTSTP) < 0) {
+							fprintf(stderr,"SIGTSTP failed\n");
+							return;
+						}
+						jobs[i].state = FG; //Put in foreground
+						if(kill(-jobs[i].pid,SIGCONT) < 0) {
+							fprintf(stderr,"SIGCONT failed\n");
+							return;
+						}
+						waitfg(jobs[i].pid);
+					}
+					else {
+						//Stopped Jobs
+						if(jobs[i].state == ST) {
+							jobs[i].state = FG; //Put in foreground
+							if(kill(-jobs[i].pid,SIGCONT) < 0) {
+								fprintf(stderr,"SIGCONT failed\n");
+								return;
+							}
+							waitfg(jobs[i].pid);
+						}
+						else {
+							//Job is already foreground
+							if(jobs[i].state == FG) {
+								jobs[i].state = FG;
+								if(kill(-jobs[i].pid,SIGCONT) < 0) {
+									fprintf(stderr,"SIGCONT failed\n");
+									return;
+								}
+								waitfg(jobs[i].pid);
+							}
+						}
+					}
+					return;
+				}
+				//Background Command
+				else if (strcmp(argv[0],"bg") == 0) {
+					//Stopped Jobs
+					if(jobs[i].state == ST) {
+						jobs[i].state = BG; //Put in Background
+						if(kill(-jobs[i].pid,SIGCONT) < 0) {
+							fprintf(stderr,"SIGCONT failed\n");
+							return;
+						}
+					}
+					else {
+						//Cannot Background running jobs
+						if(jobs[i].state == FG) {
+							fprintf(stderr,"Background cannot get foreground job\n");
+							return;		
+						}
+					}
+					return;
+				}
+				else {
+					printf("Error\n");
+				}
+			}
+		}
+	}	
 	return;
 }
 
@@ -317,8 +437,9 @@ void waitfg(pid_t pid)
 	struct job_t* job;
 	job = getjobpid(jobs, pid);
 	while(waitpid(pid, &status, WNOHANG) == 0) {
-		while(job->state == FG) {
+		if(job->state != FG) {
 			sleep(1);
+			return;
 		}
 	}
 	return;
@@ -337,7 +458,7 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    // Imma handle children
+	// Imma handle children
 	return;
 }
 
@@ -348,7 +469,7 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-    // Integers and shit
+	// Integers and shit
 	return;
 }
 
@@ -359,7 +480,7 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-    // Give us us free
+	// Give us us free
 	return;
 }
 
