@@ -350,7 +350,7 @@ void do_bgfg(char **argv)
 			}
 			else {
 				jid = atoi(argv[1]);
-				if(getjobjid(jobs,jid) == NULL) {
+				if(getjobpid(jobs,jid) == NULL) {
 					fprintf(stderr,"Not a valid job.\n");
 					return;
 				}
@@ -435,7 +435,9 @@ void waitfg(pid_t pid)
 {
 	int status = 0;
 	struct job_t* job;
+	//Getting job from passed in pid
 	job = getjobpid(jobs, pid);
+	//While function is completeing is the foreground, wait
 	while(waitpid(pid, &status, WNOHANG) == 0) {
 		if(job->state != FG) {
 			sleep(1);
