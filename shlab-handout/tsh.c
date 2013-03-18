@@ -173,13 +173,17 @@ void eval(char *cmdline)
 	char buf[MAXLINE];
 	int bg;
 	pid_t pid;
-
+	//copying the passed in arg to a buffer
 	strcpy(buf,cmdline);
+	//Parsing the line
 	bg = parseline(buf,argv);
+	//No args exist
 	if(argv[0] == NULL) {
 		return;
 	}
+	//Checks if the passed argument is built in
 	if(!builtin_cmd(argv)) {
+		//Forking and executing
 		if((pid = Fork()) == 0) {
 			if(execve(argv[0],argv,environ) < 0) {
 				printf("%s: Command not found.\n",argv[0]);
@@ -187,13 +191,23 @@ void eval(char *cmdline)
 			}
 		}
 		if(!bg) {
+			//Not a background job
+			if(!addjob(jobs, pid, FG, cmdline)) {
+				printf("Failed to add job.\n");
+			}
 			int status;
 			if(waitpid(pid, &status, 0) < 0) {
 				unix_error("waitfg: waitpid error");
 			}
+			//Need to implement waitfg
+			waitfg(pid);
 		}
 		else {
-			printf("%d %s", pid, cmdline);
+			//Background job
+			if(!addjob(jobs,pid,BG,cmdline)) {
+				printf("Failed to add job.\n");
+			}
+			printf("%d %s\n", pid, cmdline);
 		}
 	}
 	return;
@@ -265,7 +279,7 @@ int builtin_cmd(char **argv)
 	if(strcmp(argv[0],"quit") == 0) {
 		exit(0);
 	}
-	else if(strcmp(argv[0],"job") == 0) {
+	else if(strcmp(argv[0],"jobs") == 0) {
 		listjobs(jobs);
 	}
 	else if(strcmp(argv[0],"fg") == 0) {
@@ -284,7 +298,8 @@ int builtin_cmd(char **argv)
  * do_bgfg - Execute the builtin bg and fg commands
  */
 void do_bgfg(char **argv) 
-{
+{	
+	printf("Would be fgbg shit.\n");
 	return;
 }
 
@@ -293,6 +308,8 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+	//int status = 0;
+	//struct job_t *job;
 	return;
 }
 
