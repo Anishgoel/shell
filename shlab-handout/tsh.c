@@ -288,6 +288,9 @@ int builtin_cmd(char **argv)
 	else if(strcmp(argv[0],"bg") == 0) {
 		do_bgfg(argv);
 	}
+	else if(strcmp(argv[0],"dome") == 0) {
+		printf("Put the pussy in a sarcophagus\n");
+	}
 	else {
 		printf("Not a command\n");
 	}
