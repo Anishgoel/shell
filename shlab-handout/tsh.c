@@ -4,6 +4,8 @@
  * Team Name: atb46 + jv325
  * Austin Blakeslee: atb46
  * John Van Note: jv325
+ *
+ * Baddest guys
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -329,6 +331,7 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
+    // Imma handle children
 	return;
 }
 
@@ -339,6 +342,7 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+    // Integers and shit
 	return;
 }
 
@@ -349,6 +353,7 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
+    // Give us us free
 	return;
 }
 
@@ -520,7 +525,7 @@ void listjobs(struct job_t *jobs)
  */
 pid_t Fork(void) {
 	pid_t pid;
-	
+
 	if((pid = fork()) < 0) {
 		unix_error("Fork Error.");	
 	}
