@@ -292,7 +292,7 @@ int builtin_cmd(char **argv)
 		printf("Put the pussy in a sarcophagus\n");
 	}
 	else {
-		printf("Not a command\n");
+		return 0;
 	}
 	return 1;     /* not a builtin command */
 }
@@ -311,8 +311,14 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-	//int status = 0;
-	//struct job_t *job;
+	int status = 0;
+	struct job_t* job;
+	job = getjobpid(jobs, pid);
+	while(waitpid(pid, &status, WNOHANG) == 0) {
+		while(job->state == FG) {
+			sleep(1);
+		}
+	}
 	return;
 }
 
