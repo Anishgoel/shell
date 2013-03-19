@@ -599,11 +599,13 @@ void sigchld_handler(int sig)
 		}
 		/* child process currently stopped */
 		else if(WIFSTOPPED(status)) {
-			job->state = ST;
+			job->state = ST; /* stops the jobs */
 			fprintf(stdout, "Job stopped\n");
 		}
 		/* something fucked up */
 		else {
+			/* Daniel Day Lewis */
+			fprintf(stderr, "I drink your milkshake\n");
 			unix_error("waitpid error\n");
 		}
 	}
@@ -617,13 +619,13 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-	//int status = 0;
+	//int status = 0
 	pid_t pid;
 	struct job_t *job;
 
+	/* grabs pid */
 	pid = fgpid(jobs);
 	if(pid > 0) {
-		//job = getjobpid(jobs, pid);
 		/* kill status */
 		int kstatus = kill(-pid, SIGINT);
 		if(kstatus < 0) {
@@ -649,7 +651,6 @@ void sigtstp_handler(int sig)
 	pid = fgpid(jobs);
 	/* kill status */
 	if(pid > 0) {
-		//job = getjobpid(jobs, pid);
 		int kstatus = kill(-pid, SIGTSTP);
 		if(kstatus < 0) {
 			unix_error("sigtstp_handler error\n");
