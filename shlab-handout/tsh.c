@@ -590,17 +590,17 @@ void sigchld_handler(int sig)
 		/* child process terminated normally */
 		if(WIFEXITED(status)) {
 			deletejob(jobs, pid); /* removes process id from job list */
-			fprintf(stdout, "Job deleted, Exit signal");
+			fprintf(stdout, "Job deleted, Exit signal\n");
 		}
 		/* child process terminated because of a signal was not caught */
 		else if(WIFSIGNALED(status)) {
 			deletejob(jobs, pid);
-			fprintf(stdout, "Job deleted, signal not caught");
+			fprintf(stdout, "Job deleted, signal not caught\n");
 		}
 		/* child process currently stopped */
 		else if(WIFSTOPPED(status)) {
 			job->state = ST;
-			fprintf(stdout, "Job stopped");
+			fprintf(stdout, "Job stopped\n");
 		}
 		/* something fucked up */
 		else {
@@ -623,13 +623,13 @@ void sigint_handler(int sig)
 
 	pid = fgpid(jobs);
 	if(pid > 0) {
-		job = getjobpid(jobs, pid);
+		//job = getjobpid(jobs, pid);
 		/* kill status */
 		int kstatus = kill(-pid, SIGINT);
 		if(kstatus < 0) {
-			unix_error("sigint_handler error");
+			unix_error("sigint_handler error\n");
 		}
-		fprintf(stdout, "SIGINT caught");
+		fprintf(stdout, "SIGINT caught\n");
 	}
 
 	return;
@@ -649,12 +649,12 @@ void sigtstp_handler(int sig)
 	pid = fgpid(jobs);
 	/* kill status */
 	if(pid > 0) {
-		job = getjobpid(jobs, pid);
+		//job = getjobpid(jobs, pid);
 		int kstatus = kill(-pid, SIGTSTP);
 		if(kstatus < 0) {
-			unix_error("sigtstp_handler error");
+			unix_error("sigtstp_handler error\n");
 		}
-		fprintf(stdout, "SIGTSTP caught");
+		fprintf(stdout, "SIGTSTP caught\n");
 	}
 
 	return;
