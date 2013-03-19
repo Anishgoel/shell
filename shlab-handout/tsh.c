@@ -460,7 +460,32 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-	// Imma handle children
+    int status = 0;
+    pid_t pid;
+    struct job_t job;
+    
+    while((pid = waitpid(-1, &status, WNOHANG|WUNTRACED)) > 0) {
+        jobs = getjobpid(jobs, pid);
+        /* child process terminated normally */
+        if(WIFEXITED(status)) {
+            deletejob(jobs, pid);
+            fprintf(stdout, "Job deleted, Exit signal");
+        }
+        /* child process terminated because of a signal was not caught */
+        else if(WIFSIGNALED(status)) {
+            deletejob(jobs, pid);
+            fprintf(stdout, "Job deleted, signal not caught");
+        }
+        /* child process currently stopped */
+        else if(WIFSTOPPED(status)) {
+            job->state = ST;
+            fprintf(stdout, "Job stopped, ");
+        }
+        /* something fucked up */
+        else {
+            unix_error("waitpid error\n");
+        }
+    }
 	return;
 }
 
@@ -471,7 +496,20 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-	// Integers and shit
+    int status = 0;
+    pid_t pid;
+    struct job_t job;
+    
+    pid = fgpid(jobs);
+    if(pid > 0) {
+        job = getjobpid(jobs, pid);
+        int kstatus = kill(-pid, SIGTINT);
+        if(kstatus < 0) {
+            unix_error("sigint_handler error")
+        }
+        fprintf(stdout, "SIGINT caught");
+    }
+    
 	return;
 }
 
@@ -482,7 +520,20 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-	// Give us us free
+    int status = 0;
+    pid_t pid;
+    struct job_t job;
+    
+    pid = fgpid(jobs);
+    if(pid > 0) {
+        job = getjobpid(jobs, pid);
+        int kstatus = kill(-pid, SIGTSTP);
+        if(kstatus < 0) {
+            unix_error("sigtstp_handler error")
+        }
+        fprintf(stdout, "SIGTSTP caught");
+    }
+    
 	return;
 }
 
