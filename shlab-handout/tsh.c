@@ -177,21 +177,23 @@ void eval(char *cmdline)
 	char buf[MAXLINE];
 	int bg, argc = 0, i = 0;
 	pid_t pid;
-	//copying the passed in arg to a buffer
+	/* copying the passed in arg to a buffer */
 	strcpy(buf,cmdline);
-	//Parsing the line
+
+	/* parsing the line */
 	bg = parseline(buf,argv);
-	//No args exist
+
+	/* no args exist */
 	if(argv[0] == NULL) {
 		return;
 	}
 	else {
 		for(i = 0; i < MAXARGS; i++) {
 			if ( argv[i] == NULL )
-                	{
-                        	argc = i;
-                        	break;
-                	}
+			{
+				argc = i;
+				break;
+			}
 		}
 	}
 	int pipes[2];
@@ -204,7 +206,8 @@ void eval(char *cmdline)
 	char **cmd2;
 	char *file;
 	int piped = 0, redirect = 0, fd = 0, index = 0;
-	//Checks if the passed argument is built in
+
+	/* checks if the passed argument is built in */
 	if(!builtin_cmd(argv)) {
 		int j = 0;
 		while(argv[j] != NULL) {
@@ -226,8 +229,8 @@ void eval(char *cmdline)
 
 				argv[index+1] = NULL;
 				cmd1 = calloc(index,sizeof(char *));
-                                cmd2 = calloc((argc-j+1),sizeof(char *));
-                                break;
+				cmd2 = calloc((argc-j+1),sizeof(char *));
+				break;
 			}
 			j++;
 		}
@@ -244,7 +247,7 @@ void eval(char *cmdline)
 			j++;
 		}
 
-		//Make sure addjob runs before delete job
+		/* make sure addjob runs before delete job */
 		sigset_t mask;
 		if(sigemptyset(&mask) < 0) {
 			fprintf(stderr,"Failed to create empty set.\n");
@@ -258,7 +261,8 @@ void eval(char *cmdline)
 			fprintf(stderr,"Failed to block SIGCHLD.\n");
 			exit(0);
 		}
-		//Forking and executing
+
+		/* forking and executing */
 		if((pid = Fork()) == 0) {
 			if(setpgid(0,0) < 0) {
 				fprintf(stderr,"Failed to create process group.\n");
@@ -272,9 +276,9 @@ void eval(char *cmdline)
 					close(pipes[1]);
 					sigprocmask(SIG_UNBLOCK,&mask,NULL);
 					if(execve(cmd1[0],cmd1,environ) < 0) {
-                                		printf("%s: Command not found.\n",argv[0]);
-                                		exit(1);
-                        		}
+						printf("%s: Command not found.\n",argv[0]);
+						exit(1);
+					}
 					exit(0);
 				}
 				else {
@@ -282,12 +286,12 @@ void eval(char *cmdline)
 					sigprocmask(SIG_UNBLOCK,&mask,NULL);
 					waitfg(pid2);
 					close(pipes[1]);
-                                        dup2(pipes[0],0);
-                                        close(pipes[0]);
+					dup2(pipes[0],0);
+					close(pipes[0]);
 					if(execve(cmd1[0],cmd1,environ) < 0) {
-                                                printf("%s: Command not found.\n",argv[0]);
-                                                exit(1);
-                                        }
+						printf("%s: Command not found.\n",argv[0]);
+						exit(1);
+					}
 				}
 			}
 			else {
@@ -310,20 +314,20 @@ void eval(char *cmdline)
 			}
 		}
 		if(!bg) {
-			//Not a background job
+			/* not a background job */
 			if(!addjob(jobs, pid, FG, cmdline)) {
 				printf("Failed to add job.\n");
 			}
-			//int status;
 			if(sigprocmask(SIG_UNBLOCK,&mask,NULL) < 0) {
 				fprintf(stderr,"Failed to unblock SIGCHLD.\n");
 				exit(0);
 			}
+
 			//Need to implement waitfg
 			waitfg(pid);
 		}
 		else {
-			//Background job
+			/* background job */
 			if(!addjob(jobs,pid,BG,cmdline)) {
 				printf("Failed to add job.\n");
 			}
@@ -341,9 +345,9 @@ void eval(char *cmdline)
 			return;
 		}
 		if(close(pipes[1]) < 0) {
-                        fprintf(stderr,"Cannot close pipe.\n");
+			fprintf(stderr,"Cannot close pipe.\n");
 			return;
-                }
+		}
 	}
 	if(redirect || piped) {
 		free(cmd1);
@@ -444,12 +448,12 @@ void do_bgfg(char **argv)
 	//pid_t pid;
 	int jid;
 	//int i = 0;
-	
-	//Check if there is an additional argument
+
+	/* check if there is an additional argument */
 	if(argv[1]) {
-		//Check for valid argument
+		/* check for valid argument */
 		if(argv[1][0] == '%') {
-			//Getting Job ID
+			/* getting job ID */
 			jid = argv[1][1] - '0';
 			if(getjobjid(jobs,jid) == 0) {
 				fprintf(stderr,"Not a valid job.\n");
@@ -457,7 +461,7 @@ void do_bgfg(char **argv)
 			}
 		}
 		else {
-			//Getting Process ID
+			/* getting process ID */
 			if(atoi(argv[1]) == 0) {
 				fprintf(stderr,"Invalid Parameters\n");
 				return;
@@ -470,20 +474,22 @@ void do_bgfg(char **argv)
 				}
 			}
 		}
-		//Loop through jobs
+		
+		/* loop through jobs */
 		int i;
 		for(i = 0; i < MAXJOBS; i++) {
-			//Check if we found the job were looking for
+			
+			/* check if we found the job were looking for */
 			if((jobs[i].pid == (pid_t)jid) || (jobs[i].jid == (int)jid)) {
-				//Foreground Command
+				/* foreground command */
 				if(strcmp(argv[0],"fg") == 0) {
-					//Background Job Found
+					/* background job found */
 					if(jobs[i].state == BG) {
 						if(kill(-jobs[i].pid,SIGTSTP) < 0) {
 							fprintf(stderr,"SIGTSTP failed\n");
 							return;
 						}
-						jobs[i].state = FG; //Put in foreground
+						jobs[i].state = FG; /* put in foreground */
 						if(kill(-jobs[i].pid,SIGCONT) < 0) {
 							fprintf(stderr,"SIGCONT failed\n");
 							return;
@@ -491,9 +497,9 @@ void do_bgfg(char **argv)
 						waitfg(jobs[i].pid);
 					}
 					else {
-						//Stopped Jobs
+						/* stopped jobs */
 						if(jobs[i].state == ST) {
-							jobs[i].state = FG; //Put in foreground
+							jobs[i].state = FG; /* put in foreground */
 							if(kill(-jobs[i].pid,SIGCONT) < 0) {
 								fprintf(stderr,"SIGCONT failed\n");
 								return;
@@ -501,7 +507,7 @@ void do_bgfg(char **argv)
 							waitfg(jobs[i].pid);
 						}
 						else {
-							//Job is already foreground
+							/* job is already foreground */
 							if(jobs[i].state == FG) {
 								jobs[i].state = FG;
 								if(kill(-jobs[i].pid,SIGCONT) < 0) {
@@ -514,18 +520,18 @@ void do_bgfg(char **argv)
 					}
 					return;
 				}
-				//Background Command
+				/* background command */
 				else if (strcmp(argv[0],"bg") == 0) {
-					//Stopped Jobs
+					/* stopped jobs */
 					if(jobs[i].state == ST) {
-						jobs[i].state = BG; //Put in Background
+						jobs[i].state = BG; /* put in background */
 						if(kill(-jobs[i].pid,SIGCONT) < 0) {
 							fprintf(stderr,"SIGCONT failed\n");
 							return;
 						}
 					}
 					else {
-						//Cannot Background running jobs
+						/* cannot background running jobs */
 						if(jobs[i].state == FG) {
 							fprintf(stderr,"Background cannot get foreground job\n");
 							return;		
@@ -549,9 +555,9 @@ void waitfg(pid_t pid)
 {
 	int status = 0;
 	struct job_t* job;
-	//Getting job from passed in pid
+	/* Getting job from passed in pid */
 	job = getjobpid(jobs, pid);
-	//While function is completeing is the foreground, wait
+	/* while function is completing is the foreground, wait */
 	while(waitpid(pid, &status, WNOHANG) == 0) {
 		if(job->state != FG) {
 			sleep(1);
@@ -574,32 +580,33 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    int status = 0;
-    pid_t pid;
-    struct job_t job;
-    
-    while((pid = waitpid(-1, &status, WNOHANG|WUNTRACED)) > 0) {
-        jobs = getjobpid(jobs, pid);
-        /* child process terminated normally */
-        if(WIFEXITED(status)) {
-            deletejob(jobs, pid);
-            fprintf(stdout, "Job deleted, Exit signal");
-        }
-        /* child process terminated because of a signal was not caught */
-        else if(WIFSIGNALED(status)) {
-            deletejob(jobs, pid);
-            fprintf(stdout, "Job deleted, signal not caught");
-        }
-        /* child process currently stopped */
-        else if(WIFSTOPPED(status)) {
-            job->state = ST;
-            fprintf(stdout, "Job stopped, ");
-        }
-        /* something fucked up */
-        else {
-            unix_error("waitpid error\n");
-        }
-    }
+	int status = 0;
+	pid_t pid;
+	struct job_t *job;
+	
+	/* all available children */
+	while((pid = waitpid(-1, &status, WNOHANG|WUNTRACED)) > 0) {
+		job = getjobpid(jobs, pid);
+		/* child process terminated normally */
+		if(WIFEXITED(status)) {
+			deletejob(jobs, pid); /* removes process id from job list */
+			fprintf(stdout, "Job deleted, Exit signal");
+		}
+		/* child process terminated because of a signal was not caught */
+		else if(WIFSIGNALED(status)) {
+			deletejob(jobs, pid);
+			fprintf(stdout, "Job deleted, signal not caught");
+		}
+		/* child process currently stopped */
+		else if(WIFSTOPPED(status)) {
+			job->state = ST;
+			fprintf(stdout, "Job stopped");
+		}
+		/* something fucked up */
+		else {
+			unix_error("waitpid error\n");
+		}
+	}
 	return;
 }
 
@@ -610,20 +617,21 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-    int status = 0;
-    pid_t pid;
-    struct job_t job;
-    
-    pid = fgpid(jobs);
-    if(pid > 0) {
-        job = getjobpid(jobs, pid);
-        int kstatus = kill(-pid, SIGTINT);
-        if(kstatus < 0) {
-            unix_error("sigint_handler error")
-        }
-        fprintf(stdout, "SIGINT caught");
-    }
-    
+	//int status = 0;
+	pid_t pid;
+	struct job_t *job;
+
+	pid = fgpid(jobs);
+	if(pid > 0) {
+		job = getjobpid(jobs, pid);
+		/* kill status */
+		int kstatus = kill(-pid, SIGINT);
+		if(kstatus < 0) {
+			unix_error("sigint_handler error");
+		}
+		fprintf(stdout, "SIGINT caught");
+	}
+
 	return;
 }
 
@@ -634,20 +642,21 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-    int status = 0;
-    pid_t pid;
-    struct job_t job;
-    
-    pid = fgpid(jobs);
-    if(pid > 0) {
-        job = getjobpid(jobs, pid);
-        int kstatus = kill(-pid, SIGTSTP);
-        if(kstatus < 0) {
-            unix_error("sigtstp_handler error")
-        }
-        fprintf(stdout, "SIGTSTP caught");
-    }
-    
+	//int status = 0;
+	pid_t pid;
+	struct job_t *job;
+
+	pid = fgpid(jobs);
+	/* kill status */
+	if(pid > 0) {
+		job = getjobpid(jobs, pid);
+		int kstatus = kill(-pid, SIGTSTP);
+		if(kstatus < 0) {
+			unix_error("sigtstp_handler error");
+		}
+		fprintf(stdout, "SIGTSTP caught");
+	}
+
 	return;
 }
 
@@ -881,6 +890,3 @@ void sigquit_handler(int sig)
 	printf("Terminating after receipt of SIGQUIT signal\n");
 	exit(1);
 }
-
-
-
