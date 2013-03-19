@@ -16,6 +16,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+//Added file control
+#include <fcntl.h>
 
 /* Misc manifest constants */
 #define MAXLINE    1024   /* max line size */
@@ -173,7 +175,7 @@ void eval(char *cmdline)
 {
 	char* argv[MAXARGS];
 	char buf[MAXLINE];
-	int bg;
+	int bg, argc = 0, i = 0;
 	pid_t pid;
 	//copying the passed in arg to a buffer
 	strcpy(buf,cmdline);
@@ -183,8 +185,66 @@ void eval(char *cmdline)
 	if(argv[0] == NULL) {
 		return;
 	}
+	else {
+		for(i = 0; i < MAXARGS; i++) {
+			if ( argv[i] == NULL )
+                	{
+                        	argc = i;
+                        	break;
+                	}
+		}
+	}
+	int pipes[2];
+	if(pipe(pipes) < 0) {
+		fprintf(stderr, "Error creating pipe\n");
+		exit(1);
+	}
+
+	char **cmd1;
+	char **cmd2;
+	char *file;
+	int piped = 0, redirect = 0, fd = 0, index = 0;
 	//Checks if the passed argument is built in
 	if(!builtin_cmd(argv)) {
+		int j = 0;
+		while(argv[j] != NULL) {
+			if(strcmp(argv[j],"|") == 0) {
+				piped = 1;
+				index = j;
+				cmd1 = calloc(index,sizeof(char *));
+				cmd2 = calloc((argc-j+1),sizeof(char *));
+				break;
+			}
+			if((strcmp(argv[j],"<") == 0) || (strcmp(argv[j],">") == 0)) {
+				redirect = 1;
+				index = j;
+				file = argv[index+1];
+				if((fd = open(file,O_RDWR|O_CREAT,S_IRUSR|S_IWUSR)) < 0) {
+					fprintf(stderr,"Cannot open file!\n");
+					return;
+				} 
+
+				argv[index+1] = NULL;
+				cmd1 = calloc(index,sizeof(char *));
+                                cmd2 = calloc((argc-j+1),sizeof(char *));
+                                break;
+			}
+			j++;
+		}
+		j = 0;
+		while((index != 0) && (argv[j] != NULL)) {
+			if(j < index) {
+				cmd1[j] = argv[j];
+			}
+			else {
+				if(j > index) {
+					cmd2[j-index-1] = argv[j];
+				}
+			}
+			j++;
+		}
+
+		//Make sure addjob runs before delete job
 		sigset_t mask;
 		if(sigemptyset(&mask) < 0) {
 			fprintf(stderr,"Failed to create empty set.\n");
@@ -203,6 +263,42 @@ void eval(char *cmdline)
 			if(setpgid(0,0) < 0) {
 				fprintf(stderr,"Failed to create process group.\n");
 				exit(0);
+			}
+			if(piped) {
+				pid_t pid2;
+				if((pid2 = Fork()) == 0) {
+					close(pipes[0]);
+					dup2(pipes[1],1);
+					close(pipes[1]);
+					sigprocmask(SIG_UNBLOCK,&mask,NULL);
+					if(execve(cmd1[0],cmd1,environ) < 0) {
+                                		printf("%s: Command not found.\n",argv[0]);
+                                		exit(1);
+                        		}
+					exit(0);
+				}
+				else {
+					addjob(jobs,pid2,FG,cmdline);
+					sigprocmask(SIG_UNBLOCK,&mask,NULL);
+					waitfg(pid2);
+					close(pipes[1]);
+                                        dup2(pipes[0],0);
+                                        close(pipes[0]);
+					if(execve(cmd1[0],cmd1,environ) < 0) {
+                                                printf("%s: Command not found.\n",argv[0]);
+                                                exit(1);
+                                        }
+				}
+			}
+			else {
+				if(strcmp(argv[index],"<") == 0) {
+					dup2(fd,0);
+					argv[index] = NULL;
+				}
+				else if(strcmp(argv[index],">") == 0) {
+					dup2(fd,1);
+					argv[index] = NULL;
+				}
 			}
 			if(sigprocmask(SIG_UNBLOCK,&mask,NULL) < 0) {
 				fprintf(stderr,"Failed to unblock SIGCHLD.\n");
@@ -234,6 +330,24 @@ void eval(char *cmdline)
 			sigprocmask(SIG_UNBLOCK,&mask,NULL);
 			printf("%d %s\n", pid, cmdline);
 		}
+		if(redirect) {
+			if(close(fd) < 0) {
+				fprintf(stderr,"Cannot close file\n");
+				return;
+			}
+		}
+		if(close(pipes[0]) < 0) {
+			fprintf(stderr,"Cannot close pipe.\n");
+			return;
+		}
+		if(close(pipes[1]) < 0) {
+                        fprintf(stderr,"Cannot close pipe.\n");
+			return;
+                }
+	}
+	if(redirect || piped) {
+		free(cmd1);
+		free(cmd2);
 	}
 	return;
 }
